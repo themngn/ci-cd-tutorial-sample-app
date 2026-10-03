@@ -20,7 +20,7 @@ Also:
 
 ## Requirements
 
- * `Python 3.8`
+ * `Python 3.12`
  * `Pip`
  * `virtualenv`, or `conda`, or `miniconda`
 
@@ -44,7 +44,7 @@ $ pip install -r requirements.txt
 With `conda` or `miniconda`:
 
 ```sh
-$ conda env create -n ci-cd-tutorial-sample-app python=3.8
+$ conda env create -n ci-cd-tutorial-sample-app python=3.12
 $ source activate ci-cd-tutorial-sample-app
 $ pip install -r requirements.txt
 ```
@@ -99,6 +99,42 @@ Run:
 $ docker build -t ci-cd-tutorial-sample-app:latest .
 $ docker run -d -p 8000:8000 ci-cd-tutorial-sample-app:latest
 ```
+
+## CI/CD pipeline
+
+Defined in `.github/workflows/docker_build_push.yml` (GitHub Actions):
+
+```
+Run code tests ──► Smoke-test Docker image ──► Build and push Docker image to Docker Hub
+(every push / PR)  (every push / PR)           (only on a published release)
+```
+
+### What was added
+
+A **Smoke-test Docker image** stage (`smoke_test` job), placed between the tests and the release push:
+
+1. **Build the Docker image** from the `Dockerfile`.
+2. **Run smoke test** - starts the container, waits up to 30s for it to come up, then checks:
+   - `GET /` returns `200` with `{"status": "ok"}`
+   - `GET /menu` returns `404` on an empty database (migrations ran)
+   - `GET /menu` returns `200` with `today_special` after running `seed.py`
+3. **Show container logs and clean up** - always runs, so failures can be debugged from the log.
+4. **Upload smoke test report** - `smoke-test-report.txt` is published as the `smoke-test-report` artifact, also on failure.
+
+### Why
+
+Unit tests run the app with the Flask test client, so they do not catch a broken image (missing
+dependency, failing migration, wrong `CMD`). Previously such an image would only be noticed after it
+was pushed to Docker Hub. Now `push_to_registry` depends on `smoke_test`, so only an image that
+actually starts and serves requests can be released.
+
+### How to run
+
+- Push to any branch (without `/` in the name) or open a pull request: tests and the smoke test run.
+- Publish a GitHub Release: all of the above, then the image is pushed to Docker Hub.
+  Requires repository secrets `DOCKERHUB_USERNAME`, `DOCKERHUB_PASSWORD` (access token) and
+  `DOCKERHUB_REPOSITORY` (e.g. `user/ci-cd-tutorial-sample-app`).
+- The report is under **Actions → run → Artifacts → smoke-test-report**.
 
 ## Deploying to Heroku
 
