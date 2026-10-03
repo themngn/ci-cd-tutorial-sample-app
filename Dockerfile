@@ -1,16 +1,13 @@
-FROM ubuntu:18.04
-
-RUN apt-get update && \
-    apt-get -y upgrade && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -yq libpq-dev gcc python3.8 python3-pip && \
-    apt-get clean
+FROM python:3.12-slim
 
 WORKDIR /sample-app
 
-COPY . /sample-app/
+COPY requirements.txt requirements-server.txt /sample-app/
 
-RUN pip3 install -r requirements.txt && \
-    pip3 install -r requirements-server.txt
+RUN pip3 install --no-cache-dir -r requirements.txt && \
+    pip3 install --no-cache-dir -r requirements-server.txt
+
+COPY . /sample-app/
 
 ENV LC_ALL="C.UTF-8"
 ENV LANG="C.UTF-8"
